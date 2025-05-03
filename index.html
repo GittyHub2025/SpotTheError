@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grammar Spot Error Card</title>
+    <title>Grammar Spot Error Quiz</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
     <style type="text/tailwindcss">
         @layer utilities {
-          /* Add sr-only if not fully covered by CDN */
           .sr-only {
             position: absolute;
             width: 1px;
@@ -21,7 +20,7 @@
             border-width: 0;
           }
         }
-        /* Define custom animation for shake */
+        /* Shake Animation */
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
           10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
@@ -30,338 +29,443 @@
         .animate-shake {
           animation: shake 0.4s ease-in-out;
         }
-        /* Custom focus visible for word spans (more noticeable) */
+        /* Focus style for word spans */
         .word:focus-visible {
             outline: 2px solid #3b82f6; /* blue-500 */
             outline-offset: 2px;
             background-color: #e0f2fe; /* sky-100 */
         }
+        /* Progress bar fill transition */
+        #progress-bar-fill {
+            transition: width 0.3s ease-out;
+        }
+        /* Subtle fade transition for card content changes */
+        #grammar-card {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        #grammar-card.loading {
+            opacity: 0;
+            transform: translateY(10px);
+        }
     </style>
     <script>
-      // Optional: Configure Tailwind theme (e.g., for Shadcn-like button)
+      // Tailwind Config (optional, defines color names)
       tailwind.config = {
         theme: {
           extend: {
             colors: {
-              // Approximation of Shadcn UI default button colors
               primary: {
-                DEFAULT: 'hsl(222.2 47.4% 11.2%)', // bg-primary
-                foreground: 'hsl(210 40% 98%)',    // text-primary-foreground
+                DEFAULT: 'hsl(222.2 47.4% 11.2%)',
+                foreground: 'hsl(210 40% 98%)',
               },
-              // Accent colors from the prompt
-              'feedback-correct': '#16A34A', // green-600/700
-              'feedback-wrong': '#DC2626', // red-600/700
+              'feedback-correct': '#16A34A', // green-600
+              'feedback-wrong': '#DC2626',   // red-600
               'feedback-pending': '#FACC15', // yellow-400
-              'card-bg': '#F8FAFC', // slate-50
+              'card-bg': '#F8FAFC',          // slate-50
+              'progress-fill': '#22C55E',    // green-500
+              'progress-track': '#E5E7EB',   // gray-200
             },
           }
         }
       }
     </script>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4 font-sans">
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4 font-sans">
+
+    <div class="w-full max-w-md mb-6 text-center">
+        <h1 class="text-2xl font-bold text-slate-800 mb-4">Grammar Spot-the-Error</h1>
+
+        <!-- Progress Bar Area -->
+        <div id="progress-container" class="w-full mb-2">
+             <span id="progress-label" class="text-sm text-slate-600 mb-1 block">Card 1 of N</span>
+             <div role="progressbar"
+                  aria-labelledby="progress-label"
+                  aria-valuenow="0"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  class="w-full bg-progress-track rounded-full h-2.5 overflow-hidden">
+                <div id="progress-bar-fill" class="bg-progress-fill h-2.5 rounded-full" style="width: 0%"></div>
+             </div>
+        </div>
+    </div>
 
     <!-- Grammar Card Container -->
     <div id="grammar-card"
-         class="bg-card-bg rounded-2xl shadow-md p-4 w-full max-w-md mx-auto flex flex-col gap-4 transition-shadow duration-200"
+         class="bg-card-bg rounded-2xl shadow-md p-4 w-full max-w-md mx-auto flex flex-col gap-4"
          role="group"
-         aria-labelledby="sentence-heading">
+         aria-labelledby="sentence-heading"
+         aria-live="polite"  
+         aria-atomic="true"> {/* Card itself can announce loading state */}
 
-        <!-- Screen Reader Only Heading -->
-        <h2 id="sentence-heading" class="sr-only">Grammar Spot the Error Card</h2>
+        <!-- Screen Reader Only Heading (context for content within card) -->
+        <h2 id="sentence-heading" class="sr-only">Current grammar card</h2>
 
-        <!-- Sentence Area -->
-        <div id="sentence-container" class="text-lg leading-relaxed text-slate-800 text-center">
-            <!-- Words will be dynamically inserted here -->
-            <span class="opacity-50">Loading sentence...</span>
+        <div id="card-content">
+            <!-- Content replaced dynamically -->
+            <div class="text-center text-slate-500">Loading...</div>
         </div>
 
-        <!-- Action Button Area -->
-        <div class="flex justify-center mt-2">
-            <button id="show-answer-btn"
-                    type="button"
-                    disabled
-                    class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-                    aria-controls="answer-details">
-                Show Answer
-            </button>
-        </div>
-
-        <!-- Revealed Answer Section (Initially Hidden) -->
-        <div id="answer-details" class="mt-2 pt-3 border-t border-slate-200 text-center text-sm hidden">
-            <p id="answer-status" class="font-semibold text-base mb-1"></p>
-            <p id="answer-text" class="mb-1"></p>
-            <p id="answer-rule" class="text-slate-600 italic"></p>
-            <p id="next-prompt" class="mt-3 text-xs text-slate-500 hidden">Tap anywhere on the card to continue.</p>
-        </div>
-
-        <!-- ARIA Live Region for Screen Reader Feedback -->
+        <!-- ARIA Live Region for Specific Feedback (moved outside dynamic content) -->
         <div id="sr-feedback" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-
     </div>
 
+    <!-- Quiz Complete Message Area (Initially Hidden) -->
+    <div id="quiz-complete" class="hidden mt-6 text-center w-full max-w-md">
+        <h2 class="text-xl font-semibold text-slate-700">Quiz Complete!</h2>
+        <p class="text-slate-600 mt-2">Well done!</p>
+        <!-- Optional: Add a button to restart or go elsewhere -->
+    </div>
+
+
     <script>
-        // --- Card Data ---
-        // You would typically fetch this data or pass it in
-        const cardData = {
-          id: 1, // Example ID
-          sentence: "My cousins is coming tomorrow.",
-          errorIndex: 2, // ZERO-based index of "is"
-          correction: "are",
-          rule: "plural subject → plural verb",
-          // Placeholder for a function to load the next card
-          onNext: () => {
-            console.log("Next card requested!");
-            // In a real app, you'd load new data here and call initCard again
-            alert("Next card would load now.");
-            // Example: Load new data and re-initialize
-            // loadNextCardData().then(newCardData => initCard(newCardData));
-          }
-        };
+        // --- Card Deck ---
+        const cardDeck = [
+          { id: 1, sentence: "My cousins is coming tomorrow.", errorIndex: 2, correction: "are", rule: "plural subject → plural verb" },
+          { id: 2, sentence: "He swim very fast.", errorIndex: 1, correction: "swims", rule: "present simple, 3rd person singular → add 's'" },
+          { id: 3, sentence: "She go to the library yesterday.", errorIndex: 1, correction: "went", rule: "action in the past → simple past tense" },
+          { id: 4, sentence: "The cat jump onto the table.", errorIndex: 1, correction: "jumped", rule: "action in the past → simple past tense" },
+          { id: 5, sentence: "We has finished our homework.", errorIndex: 1, correction: "have", rule: "plural subject → plural auxiliary verb" },
+        ];
+        const totalCards = cardDeck.length;
 
         // --- DOM Element References ---
         const cardElement = document.getElementById('grammar-card');
-        const sentenceContainer = document.getElementById('sentence-container');
-        const showAnswerBtn = document.getElementById('show-answer-btn');
-        const answerDetails = document.getElementById('answer-details');
-        const answerStatus = document.getElementById('answer-status');
-        const answerText = document.getElementById('answer-text');
-        const answerRule = document.getElementById('answer-rule');
-        const nextPrompt = document.getElementById('next-prompt');
+        const cardContentElement = document.getElementById('card-content');
         const srFeedback = document.getElementById('sr-feedback');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBarFill = document.getElementById('progress-bar-fill');
+        const progressLabel = document.getElementById('progress-label');
+        const progressBar = progressContainer.querySelector('[role="progressbar"]');
+        const quizCompleteElement = document.getElementById('quiz-complete');
 
         // --- State Variables ---
+        let currentCardIndex = -1; // Start before the first card
+        let currentCardData = null;
         let words = [];
-        let currentErrorIndex = -1;
-        let currentCorrection = '';
-        let currentRule = '';
-        let currentOnNext = null;
         let selectedWordIndex = null;
         let isRevealed = false;
+        let isLoading = false; // To prevent interactions during transitions
+
+        // --- Constants ---
+        const CORRECT_ANSWER_DELAY_MS = 700; // 0.7 seconds
 
         // --- Functions ---
 
-        function announceFeedback(message) {
-            // Clear previous message content before adding new
-            srFeedback.textContent = '';
-            // Set new message - timeout helps ensure it's read reliably
-            setTimeout(() => {
-                srFeedback.textContent = message;
-            }, 50); // Small delay
+        function announceFeedback(message, isPriority = false) {
+            // Use card's aria-live for general state, srFeedback for specific actions
+            if (isPriority) {
+                // Use the dedicated region for immediate feedback
+                 srFeedback.textContent = '';
+                 setTimeout(() => { srFeedback.textContent = message; }, 50);
+            } else {
+                // Announce general state changes via the card itself
+                // (e.g., "Card 2 of 5 loaded.")
+                cardElement.textContent = message; // Screen readers read this change due to aria-live
+                // Restore actual card content immediately after announcement paints
+                requestAnimationFrame(() => {
+                     renderCardContent(currentCardData);
+                });
+            }
         }
 
         function deselectWord() {
-            if (selectedWordIndex !== null && !isRevealed) {
-                const wordSpans = sentenceContainer.querySelectorAll('.word');
-                const previouslySelected = wordSpans[selectedWordIndex];
-                if (previouslySelected) {
+            if (selectedWordIndex !== null && !isRevealed && !isLoading) {
+                const wordSpans = cardContentElement.querySelectorAll('.word');
+                if (wordSpans.length > selectedWordIndex && wordSpans[selectedWordIndex]) {
+                    const previouslySelected = wordSpans[selectedWordIndex];
                     previouslySelected.classList.remove('bg-yellow-300/80', 'hover:bg-yellow-400/80');
                     previouslySelected.classList.add('hover:bg-slate-200');
                     previouslySelected.setAttribute('aria-pressed', 'false');
                 }
                 selectedWordIndex = null;
-                showAnswerBtn.disabled = true;
-                showAnswerBtn.setAttribute('aria-disabled', 'true');
-                announceFeedback('Selection cleared.');
+                const showAnswerBtn = cardContentElement.querySelector('#show-answer-btn');
+                if(showAnswerBtn) {
+                    showAnswerBtn.disabled = true;
+                    showAnswerBtn.setAttribute('aria-disabled', 'true');
+                }
+                announceFeedback('Selection cleared.', true);
             }
         }
 
         function handleWordInteraction(index, wordText) {
-            if (isRevealed) return; // Don't allow selection after reveal
+            if (isRevealed || isLoading) return;
 
             // Deselect previous word if any
+            const wordSpans = cardContentElement.querySelectorAll('.word');
             if (selectedWordIndex !== null && selectedWordIndex !== index) {
-                const wordSpans = sentenceContainer.querySelectorAll('.word');
-                const previouslySelected = wordSpans[selectedWordIndex];
-                 if (previouslySelected) {
+                 if (wordSpans.length > selectedWordIndex && wordSpans[selectedWordIndex]) {
+                     const previouslySelected = wordSpans[selectedWordIndex];
                     previouslySelected.classList.remove('bg-yellow-300/80', 'hover:bg-yellow-400/80');
                     previouslySelected.classList.add('hover:bg-slate-200');
                     previouslySelected.setAttribute('aria-pressed', 'false');
-                }
+                 }
             }
 
             // Select the new word
             selectedWordIndex = index;
-            const wordSpans = sentenceContainer.querySelectorAll('.word');
-            const currentWordSpan = wordSpans[index];
-            if (currentWordSpan) {
+            if (wordSpans.length > index && wordSpans[index]) {
+                 const currentWordSpan = wordSpans[index];
                  currentWordSpan.classList.remove('hover:bg-slate-200');
-                 currentWordSpan.classList.add('bg-yellow-300/80', 'hover:bg-yellow-400/80'); // #FACC15 pending highlight
+                 currentWordSpan.classList.add('bg-yellow-300/80', 'hover:bg-yellow-400/80'); // Pending highlight
                  currentWordSpan.setAttribute('aria-pressed', 'true');
             }
 
-            showAnswerBtn.disabled = false;
-            showAnswerBtn.removeAttribute('aria-disabled');
-            announceFeedback(`Selected word: ${wordText}`);
+            const showAnswerBtn = cardContentElement.querySelector('#show-answer-btn');
+             if(showAnswerBtn) {
+                 showAnswerBtn.disabled = false;
+                 showAnswerBtn.removeAttribute('aria-disabled');
+             }
+            announceFeedback(`Selected word: ${wordText}`, true);
         }
 
         function handleShowAnswer() {
-            if (selectedWordIndex === null || isRevealed) return;
+            if (selectedWordIndex === null || isRevealed || isLoading) return;
 
             isRevealed = true;
-            showAnswerBtn.disabled = true;
-            showAnswerBtn.setAttribute('aria-disabled', 'true');
-            showAnswerBtn.classList.add('hidden'); // Hide button after use
+            isLoading = true; // Prevent further interaction during feedback/transition
+            const showAnswerBtn = cardContentElement.querySelector('#show-answer-btn');
+            if (showAnswerBtn) {
+                showAnswerBtn.disabled = true;
+                showAnswerBtn.setAttribute('aria-disabled', 'true');
+                showAnswerBtn.classList.add('opacity-0', 'pointer-events-none'); // Fade out button
+            }
 
-            const wordSpans = sentenceContainer.querySelectorAll('.word');
-            const isCorrectSelection = selectedWordIndex === currentErrorIndex;
+            const wordSpans = cardContentElement.querySelectorAll('.word');
+            const isCorrectSelection = selectedWordIndex === currentCardData.errorIndex;
+            const answerDetailsElement = cardContentElement.querySelector('#answer-details');
+            const answerStatusElement = cardContentElement.querySelector('#answer-status');
+            const answerTextElement = cardContentElement.querySelector('#answer-text');
+            const answerRuleElement = cardContentElement.querySelector('#answer-rule');
+            const nextPromptElement = cardContentElement.querySelector('#next-prompt');
 
             let feedbackMsg = "";
 
-            // Apply styles to words based on correctness
+            // Disable further word interaction and apply final styles
             wordSpans.forEach((span, index) => {
                 span.classList.remove('cursor-pointer', 'hover:bg-slate-200', 'hover:bg-yellow-400/80', 'bg-yellow-300/80');
                 span.classList.add('cursor-default');
-                span.removeAttribute('tabindex'); // Remove from tab order
-                 span.setAttribute('aria-pressed', 'false'); // Reset aria-pressed
+                span.removeAttribute('tabindex');
+                span.setAttribute('aria-pressed', 'false'); // Reset aria-pressed
 
                 if (index === selectedWordIndex) {
-                    if (isCorrectSelection) {
-                        span.classList.add('bg-green-600', 'text-white', 'ring-2', 'ring-green-700', 'ring-offset-1'); // #16A34A Correct
-                    } else {
-                        span.classList.add('bg-red-600', 'text-white', 'ring-2', 'ring-red-700', 'ring-offset-1'); // #DC2626 Wrong
-                    }
-                } else if (index === currentErrorIndex) {
-                    // Highlight the actual error if the user missed it
-                    span.classList.add('bg-green-600/90', 'text-white', 'underline', 'decoration-wavy', 'decoration-white/80'); // #16A34A Actual Error
+                    span.classList.add(
+                        isCorrectSelection ? 'bg-feedback-correct' : 'bg-feedback-wrong',
+                        'text-white', 'ring-2',
+                        isCorrectSelection ? 'ring-green-700' : 'ring-red-700',
+                         'ring-offset-1'
+                    );
+                } else if (index === currentCardData.errorIndex) {
+                    span.classList.add('bg-green-600/90', 'text-white', 'underline', 'decoration-wavy', 'decoration-white/80');
                 } else {
-                    // Fade out non-essential words
-                     span.classList.add('text-slate-500');
+                    span.classList.add('text-slate-500', 'opacity-70'); // Fade out others
                 }
-                 // Ensure no lingering focus styles interfere
-                 span.classList.remove('focus:ring-blue-500');
-                 span.style.outline = 'none'; // Force remove focus outline after reveal
+                span.classList.remove('focus:ring-blue-500');
+                span.style.outline = 'none';
             });
 
-            // Prepare and show answer details section
-            answerDetails.classList.remove('hidden', 'text-green-700', 'text-red-700'); // Reset classes
+             // --- Prepare feedback content ---
+            answerTextElement.innerHTML = `The error was <strong class="font-medium">"${words[currentCardData.errorIndex]}"</strong>. It should be <strong class="font-medium">"${currentCardData.correction}"</strong>.`;
+            answerRuleElement.textContent = `Rule: ${currentCardData.rule}`;
+
+            // --- Show feedback ---
+            answerDetailsElement.classList.remove('hidden', 'text-feedback-correct', 'text-feedback-wrong', 'opacity-0');
+            answerDetailsElement.classList.add('transition-opacity', 'duration-300', 'opacity-100');
+
             if (isCorrectSelection) {
-                answerStatus.textContent = '✅ Correct!';
-                answerDetails.classList.add('text-green-700'); // Use text color for overall tone
-                feedbackMsg = `Correct! The error was "${words[currentErrorIndex]}". Correction: "${currentCorrection}". Rule: ${currentRule}.`;
+                answerStatusElement.textContent = '✅ Correct!';
+                answerDetailsElement.classList.add('text-feedback-correct');
+                feedbackMsg = `Correct! The error was "${words[currentCardData.errorIndex]}". Correction: "${currentCardData.correction}". Rule: ${currentCardData.rule}. Moving to next card.`;
+
+                announceFeedback(feedbackMsg, true);
+                // AUTOMATIC ADVANCE after delay
+                setTimeout(loadNextCard, CORRECT_ANSWER_DELAY_MS);
+
             } else {
-                answerStatus.textContent = '❌ Incorrect';
-                answerDetails.classList.add('text-red-700');
-                cardElement.classList.add('animate-shake'); // Trigger shake animation
-                setTimeout(() => cardElement.classList.remove('animate-shake'), 400); // Remove class after animation
-                feedbackMsg = `Incorrect. You selected "${words[selectedWordIndex]}". The error was "${words[currentErrorIndex]}". Correction: "${currentCorrection}". Rule: ${currentRule}.`;
-            }
+                answerStatusElement.textContent = '❌ Incorrect';
+                answerDetailsElement.classList.add('text-feedback-wrong');
+                cardElement.classList.add('animate-shake');
+                setTimeout(() => cardElement.classList.remove('animate-shake'), 400);
+                feedbackMsg = `Incorrect. You selected "${words[selectedWordIndex]}". The error was "${words[currentCardData.errorIndex]}". Correction: "${currentCardData.correction}". Rule: ${currentCardData.rule}.`;
 
-            answerText.innerHTML = `The error was <strong class="font-medium">"${words[currentErrorIndex]}"</strong>. It should be <strong class="font-medium">"${currentCorrection}"</strong>.`;
-            answerRule.textContent = `Rule: ${currentRule}`;
-            answerDetails.classList.remove('hidden');
-            answerDetails.setAttribute('aria-hidden', 'false');
+                announceFeedback(feedbackMsg, true);
+                // Require user interaction to proceed
+                 nextPromptElement.classList.remove('hidden');
+                 cardElement.classList.add('cursor-pointer', 'hover:shadow-lg');
+                 cardElement.setAttribute('tabindex', '0'); // Make focusable for keyboard next
+                 cardElement.focus(); // Hint for keyboard users
 
-            announceFeedback(feedbackMsg);
-
-            // Setup "Next" functionality
-            if (currentOnNext) {
-                nextPrompt.classList.remove('hidden');
-                cardElement.classList.add('cursor-pointer', 'hover:shadow-lg');
-                // Add listener ONCE
-                cardElement.addEventListener('click', handleCardClickForNext, { once: true });
+                 // Add listeners for 'next' on incorrect
+                 cardElement.addEventListener('click', handleCardClickForNext, { once: true });
                  cardElement.addEventListener('keydown', handleCardKeydownForNext, { once: true });
-                 cardElement.setAttribute('tabindex', '0'); // Make card focusable for keyboard 'next'
-                 cardElement.focus(); // Focus card to hint keyboard user
+                 isLoading = false; // Allow interaction for 'next'
             }
         }
 
-        function handleCardClickForNext(event) {
-            // Prevent clicks on words/buttons inside triggering this after reveal
+         function handleCardClickForNext(event) {
+             // Prevent clicks on inner elements triggering this accidentally
              if (event.target !== cardElement && !cardElement.contains(event.target)) {
                  return;
              }
-             if (isRevealed && currentOnNext) {
-                 // Cleanup card styles/listeners before calling onNext
-                 cardElement.classList.remove('cursor-pointer', 'hover:shadow-lg');
-                 cardElement.removeAttribute('tabindex');
-                 cardElement.removeEventListener('keydown', handleCardKeydownForNext);
-                 currentOnNext();
-             }
-        }
-
-         function handleCardKeydownForNext(event) {
-             if (isRevealed && currentOnNext && (event.key === 'Enter' || event.key === ' ')) {
-                 event.preventDefault(); // Prevent default space scrolling
-                 handleCardClickForNext(event); // Reuse click logic
+             if (isRevealed && !isLoading) { // Ensure we only proceed if revealed and not already loading
+                cleanupCardInteractionForNext();
+                loadNextCard();
              }
          }
 
-        function initCard(data) {
-            // Reset state
-            selectedWordIndex = null;
-            isRevealed = false;
-            words = data.sentence.split(' ');
-            currentErrorIndex = data.errorIndex;
-            currentCorrection = data.correction;
-            currentRule = data.rule;
-            currentOnNext = data.onNext || null; // Store the callback
+          function handleCardKeydownForNext(event) {
+             if (isRevealed && !isLoading && (event.key === 'Enter' || event.key === ' ')) {
+                 event.preventDefault();
+                 cleanupCardInteractionForNext();
+                 loadNextCard();
+             }
+          }
 
-            // Clear previous content and styles
-            sentenceContainer.innerHTML = '';
-            showAnswerBtn.disabled = true;
-            showAnswerBtn.setAttribute('aria-disabled', 'true');
-            showAnswerBtn.classList.remove('hidden');
-            answerDetails.classList.add('hidden');
-            answerDetails.setAttribute('aria-hidden', 'true');
-            answerStatus.textContent = '';
-            answerText.textContent = '';
-            answerRule.textContent = '';
-            nextPrompt.classList.add('hidden');
-            cardElement.classList.remove('cursor-pointer', 'hover:shadow-lg', 'animate-shake');
-            cardElement.removeAttribute('tabindex');
-            // Remove potential lingering event listeners from previous card instance
-            cardElement.removeEventListener('click', handleCardClickForNext);
-            cardElement.removeEventListener('keydown', handleCardKeydownForNext);
+         function cleanupCardInteractionForNext() {
+              cardElement.classList.remove('cursor-pointer', 'hover:shadow-lg');
+              cardElement.removeAttribute('tabindex');
+              cardElement.removeEventListener('click', handleCardClickForNext);
+              cardElement.removeEventListener('keydown', handleCardKeydownForNext);
+         }
+
+
+        function updateProgressBar() {
+            const currentCardNum = currentCardIndex + 1;
+            const percentage = totalCards > 0 ? (currentCardNum / totalCards) * 100 : 0;
+
+            progressLabel.textContent = `Card ${currentCardNum} of ${totalCards}`;
+            progressBarFill.style.width = `${percentage}%`;
+            progressBar.setAttribute('aria-valuenow', percentage.toFixed(0));
+        }
+
+        function renderCardContent(data) {
+            // Clear previous content inside card-content div
+            cardContentElement.innerHTML = '';
 
             // Build sentence words
+            const sentenceContainer = document.createElement('div');
+            sentenceContainer.id = 'sentence-container';
+            sentenceContainer.className = 'text-lg leading-relaxed text-slate-800 text-center mb-4'; // Added mb-4
+
+            words = data.sentence.split(' ');
             words.forEach((word, index) => {
                 const wordSpan = document.createElement('span');
                 wordSpan.textContent = word;
                 wordSpan.dataset.index = index;
-                wordSpan.classList.add(
-                    'word', // Marker class
-                    'inline-block', 'rounded', 'py-1', 'px-2', 'm-0.5', // Base style
-                    'cursor-pointer', 'transition-colors', 'duration-150', // Interactive style
-                    'min-h-[44px]', 'min-w-[30px]', // Min tap target
-                    'flex', 'items-center', 'justify-center', // Alignment within span
-                    'hover:bg-slate-200', // Default hover
-                    'focus:outline-none' // Remove default outline, handled by focus-visible style
-                );
-                wordSpan.setAttribute('role', 'button'); // Semantics for span acting as button
-                wordSpan.setAttribute('tabindex', '0'); // Make it focusable
-                wordSpan.setAttribute('aria-pressed', 'false'); // Initial state
+                wordSpan.className = 'word inline-block rounded py-1 px-2 m-0.5 cursor-pointer transition-colors duration-150 min-h-[44px] min-w-[30px] flex items-center justify-center hover:bg-slate-200 focus:outline-none';
+                wordSpan.setAttribute('role', 'button');
+                wordSpan.setAttribute('tabindex', '0');
+                wordSpan.setAttribute('aria-pressed', 'false');
 
                 wordSpan.addEventListener('click', () => handleWordInteraction(index, word));
                 wordSpan.addEventListener('keydown', (event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault(); // Prevent space scroll/activate button
+                        event.preventDefault();
                         handleWordInteraction(index, word);
                     }
                 });
-
                 sentenceContainer.appendChild(wordSpan);
-                // Add space between words visually (can also be done with margin)
-                sentenceContainer.appendChild(document.createTextNode(' '));
+                sentenceContainer.appendChild(document.createTextNode(' ')); // Space between words
             });
+            cardContentElement.appendChild(sentenceContainer);
 
-            // Clear initial feedback
-            announceFeedback("New card loaded. Select the incorrect word.");
+            // Build Action Button Area
+            const buttonArea = document.createElement('div');
+            buttonArea.className = 'flex justify-center mt-2';
+            buttonArea.innerHTML = `
+                <button id="show-answer-btn" type="button" disabled
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                        aria-controls="answer-details" aria-disabled="true">
+                    Show Answer
+                </button>
+            `;
+            // Re-add listener for the new button (if needed, but handleShowAnswer finds it)
+            buttonArea.querySelector('#show-answer-btn').addEventListener('click', handleShowAnswer);
+            cardContentElement.appendChild(buttonArea);
+
+
+            // Build Revealed Answer Section (Initially Hidden)
+            const answerSection = document.createElement('div');
+            answerSection.id = 'answer-details';
+            answerSection.className = 'mt-4 pt-4 border-t border-slate-200 text-center text-sm hidden opacity-0'; // Start hidden and faded out
+            answerSection.setAttribute('aria-hidden', 'true');
+            answerSection.innerHTML = `
+                <p id="answer-status" class="font-semibold text-base mb-1"></p>
+                <p id="answer-text" class="mb-1"></p>
+                <p id="answer-rule" class="text-slate-600 italic"></p>
+                <p id="next-prompt" class="mt-3 text-xs text-slate-500 hidden">Tap anywhere on the card to continue.</p>
+            `;
+            cardContentElement.appendChild(answerSection);
+
         }
 
-        // --- Event Listeners ---
-        showAnswerBtn.addEventListener('click', handleShowAnswer);
+        function loadNextCard() {
+            isLoading = true;
+            currentCardIndex++;
+
+            // Add loading visual state (fade out old card)
+             cardElement.classList.add('loading');
+             // Remove listeners for 'next' if they were added (incorrect answer path)
+             cleanupCardInteractionForNext();
+
+             // Use setTimeout to allow fade-out transition before content update/fade-in
+             setTimeout(() => {
+                 if (currentCardIndex < totalCards) {
+                     currentCardData = cardDeck[currentCardIndex];
+                     initCard(currentCardData);
+                     updateProgressBar();
+                     // Announce new card loaded (will restore content via renderCardContent)
+                     announceFeedback(`Card ${currentCardIndex + 1} of ${totalCards}. ${currentCardData.sentence}`, false);
+                     // Fade in new card
+                     requestAnimationFrame(() => { // Ensure DOM is updated before removing class
+                         cardElement.classList.remove('loading');
+                     });
+                 } else {
+                     showCompletionScreen();
+                 }
+                 isLoading = false;
+             }, 300); // Match CSS transition duration
+        }
+
+        function initCard(data) {
+            // Reset state for the new card
+            selectedWordIndex = null;
+            isRevealed = false;
+            currentCardData = data; // Ensure currentCardData is set
+
+             // Render the HTML content for the card
+             renderCardContent(data);
+
+            // Reset button state visually (renderCardContent sets initial disabled)
+            const showAnswerBtn = cardContentElement.querySelector('#show-answer-btn');
+             if(showAnswerBtn) {
+                 showAnswerBtn.disabled = true;
+                 showAnswerBtn.setAttribute('aria-disabled', 'true');
+                 showAnswerBtn.classList.remove('opacity-0', 'pointer-events-none'); // Make sure it's visible
+             }
+
+            // Reset card styles/attributes from potential previous incorrect state
+             cardElement.classList.remove('cursor-pointer', 'hover:shadow-lg', 'animate-shake');
+             cardElement.removeAttribute('tabindex');
+        }
+
+        function showCompletionScreen() {
+            cardElement.classList.add('hidden');
+            progressContainer.classList.add('hidden');
+            quizCompleteElement.classList.remove('hidden');
+            announceFeedback("Quiz complete!", true);
+        }
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            progressBar.setAttribute('aria-valuemax', totalCards);
+            loadNextCard(); // Load the first card
+        });
 
         // Global listener for Escape key to deselect
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 deselectWord();
             }
-        });
-
-        // --- Initial Load ---
-        document.addEventListener('DOMContentLoaded', () => {
-            initCard(cardData);
         });
 
     </script>
